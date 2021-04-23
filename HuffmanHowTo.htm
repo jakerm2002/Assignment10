@@ -1,0 +1,782 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+  <head>
+    <title>Huffman Howto</title>
+    <link rel="stylesheet" type="text/css" href="assign.css">
+  </head>
+
+  <body>
+    <h1>Huffman Howto</h1>
+
+    <h2><a name="code"></a>The Program You Develop</h2>
+
+    <p dir="ltr">You're given classes to read and write individual bits-at-a-time. These
+<a href="#bitops">are described below</A>. You're also given a main
+program Huff.java that creates an instance
+of the non-functioning implementation of the <code>
+    <a href="doc/IHuffProcessor.html">IHuffProcessor</a></code>
+interface named <code>SimpleHuffProcessor</code>. Choosing options from the GUI using this implementation as shown on the 
+    left, below, generates an error-dialog as shown on the right since none of 
+    the methods are currently implemented (they each throw an exception).</p>
+    <p>&nbsp;</p>
+    <P>
+    <P>
+<table>
+
+<td valign="top">
+<img border="0" src="images/Huffma1.jpg" alt="Compress Menu Option" width="385" height="399">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<td valign="top">
+<img border="0" src="images/Huffma2.jpg" alt="Exception in simple version" width="521" height="400">
+</table>
+
+<p>
+When you write your methods in <code>SimpleHuffProcessor</code> to read
+or write bits you'll need to create either a <code>BitInputStream</code> or a
+<code>BitOutputStream</codE> objects to read bits-at-a-time (or write
+them). Information and help on <a href="#bitinput">how to do this is
+given below</A>, but you should probably scan this howto completely
+before beginning to design and implement your solution.
+
+<P>
+<h3>Fast-reading and Out-of-memory</h3>
+<P>
+If your program generates an out-of-memory error when reading large
+files, use the <em>Options</em> menu in the GUI to choose <em>Slow
+	Reading</em> as shown in the screen shot below.
+<p>
+<img border="0" src="images/slowReadOption.jpg" alt="set slow read option" width="647" height="399">
+<P>
+This makes reading files slower
+but the GUI/View code won't map
+the entire file into memory before reading when you compress or
+uncompress a file.
+
+<hr>
+    <h2><a name="compress"></a>Compressing using Huffman Coding</h2>
+
+The  steps below summarize how compression works and provide
+some advice on coding.
+<P>
+<OL>
+<LI> To compress a file, count how many times every bit-sequence occurs
+in a file. These counts are used to build weighted nodes that will be
+leaves in the Huffman tree. Although this write-up sometimes refers
+to "characters", <b>you should use <code>int</code> variables/values in your
+code</b> rather than <code>char</code>. Note that the method for reading 
+bits-at-a-time from a <code>BitInputStream</code> returns an 
+
+<code>int</code>, so
+using <code>int</code> variables makes sense.
+Any wording
+in this write-up that uses the word <em>character</em> means an
+<em>8-bit chunk</em> and this chunk-size could (in theory) change. This means 
+you should refer to the <code>BITS_PER_WORD</code> constant from the <code>
+IHuffConstants</code> interface and not hard code the value 8 throughout your 
+code.<B> Do not use any variables of type <code>byte</code> in your
+program.</B> Use only <code>int</code> variables.<P>
+
+<LI>
+From these counts build the Huffman tree. First create one node per value, 
+weighted with the number of times the value occurs, and insert each node 
+into a priority queue. Recall, you must insert the values into the tree in 
+ascending order based on the chunk number (character ASCII code if the chunks 
+represented characters) and that the priority queue 
+must break ties correctly. (In the case of a tie the new item is placed behind 
+items that have the same priority already present in the queue.<li>Choose the two 
+minimal nodes, join these nodes together as children of a newly created node, 
+and insert the newly created node into the priority queue (see notes from 
+class). The first node dequeued from the priority tree must be the left child of 
+the new node and the second node dequeued from the priority tree must be the 
+right child of the new node.The new node's weight is the sum of the two nodes 
+taken from the priority queue. </li>
+<li>Continue this process until only one node is left in the priority queue. 
+This is the root of the Huffman tree.
+<P>
+
+</li>
+
+<LI>
+Create a table or map of 8-bit chunks (represented as an
+<code>int</code> value) to Huffman codings.  The map of chunk-codings
+is formed by traversing the path from the root of the Huffman tree to
+each leaf.  Each root-to-leaf path creates a chunk-coding for the value
+stored in the leaf.  When going left in the tree append a zero to the
+path; when going right append a one.  The map has the 8-bit
+<code>int</code> chunks as keys and the corresponding
+Huffman/chunk-coding String as the value associated with the key.
+<P>
+The map can be an array of the appropriate size (257, due to the PSEUDO_EOF 
+value) or you can use a Java <tt>Map</tt> instead of an array.
+<P>
+
+</OL>
+<P>
+Once you've tested the code above (use the methods from the GUI to update and 
+show counts and codes!) you'll be ready to create the
+compressed output file. To do this you'll read the input file a second
+time, but the GUI front-end does this for you when it calls the method
+<code>IHuffProcessor.compress</code> to do the compression. For each
+8-bit chunk read, write the corresponding encoding of the 8-bit chunk
+(obtained from the map of encodings) to the compressed file. <em><b>You
+	write bits using a <code>BitOutputStream</code> object, you
+don't write Strings/chars</b>.</em> Instead you write one-bit, either a zero
+      or a one, for each corresponding character '0' or '1' in the string that
+is the encoding.
+<P>
+Note your codes for a given file must be the same as the ones I show in sample 
+data.<P dir="ltr">
+<b><font size="5"><a name="decompress"></a>Decompressing using Huffman Coding</font></b><P dir="ltr">
+To uncompress the file later, you must recreate the same Huffman tree
+that was used to compress. This tree
+might be stored directly in the compressed file
+(e.g., using a preorder traversal), or it might be created
+from 8-bit chunk counts stored in the compressed file. In either case,
+this information must be coded and transmitted along with the compressed
+data (the tree/count data will be stored first in the compressed file,
+to be read by <tt>unhuff</tt>. There's more <a href="#header">
+
+information below</A>
+on storing/reading the header information to re-create the tree.<P dir="ltr">
+Once the tree has been recreated start at the root of the tree and read one bit 
+at a time from the data in the file. When a 0 is read, go left in the tree. When 
+a 1 is read go right in the tree. After the move if the new node is a leaf node 
+then add that value to the output file and reset the node reference to the 
+root of the tree.<P>
+
+<h2>Help With Coding</h2>
+
+The sections below contain explanations and advice on different aspects
+    of the code you'll write to compress and uncompress data.
+<P>
+<UL>
+
+<LI> <a href="#pseudo-EOF">Pseudo-EOF value</A>
+
+<LI> <a href="#tpq">Priority Queues</A>
+<LI> <a href="#writebits">Writing Bits</A>
+<LI> <a href="#tree2table">Converting Huffman tree to Map/table</A>
+<LI> <a href="#develop">Implementing and Debugging the program</A>
+<LI> <a href="#bitops">Bitops/reading and writing bits</A><LI>  
+<a href="#exceptions">Exceptions</a><LI> <a href="#integer">The Integer class
+</a>
+
+</UL>
+<P>
+
+<H3>
+<A NAME="pseudo-EOF"></A>Pseudo-EOF value</H3>
+
+<P>
+
+The operating system will buffer output, i.e., output to disk actually
+occurs when some internal buffer is full. In particular,<b><span style="background-color: #FFFF00"> it is not
+possible to write just one single bit-at-a-time to a file</span></b>, all output is
+actually done in "chunks", e.g., it might be done in eight-bit chunks or
+256-bit chunks. In any case, when you write 3 bits, then 2 bits, then 10
+bits, all the bits are eventually written, but you can not be sure
+precisely when they're written during the execution of your
+program. 
+
+<P>
+
+Also, because of buffering, if all output is done in eight-bit
+chunks and your program writes exactly 61 bits explicitly, then 3 extra
+bits will be written so that the number of bits written is a multiple of
+eight. <b><span style="background-color: #FFFF00">Because of the potential for the existence of these "extra" bits
+when reading one bit at a time, you cannot simply read bits until there
+are no more left since your program might then read the extra bits
+written due to buffering and add data not in the original file to the 
+decompressed file.</span></b> This means that when reading a compressed
+file, you should not use code like the loop below because
+the last few bits read may not have been written by your program, but
+rather as a result of buffering and writing bits in 8-bit chunks. (You don't 
+have to worry about when the actual writing to the file takes place other than 
+calling <code>flush</code> or <code>close</code> on your <code>BitOutputStream</code> 
+when you are done.)<P>
+
+<code>&nbsp;&nbsp;&nbsp; while (true) { <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; int bit = input.readBits(1); // read 
+one bit <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if (bit == -1) break; // done reading
+<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; // process the read bit <br>
+&nbsp;&nbsp;&nbsp; } </code>
+
+<P dir="ltr">
+
+To avoid this problem, there are two solutions: store the number of real
+      bits in the header of the compressed file or
+use a pseudo-EOF value whose Huffman-coding is written to the compressed 
+file. <b>Use the pseudo-EOF technique in your program. All test 
+cases will use the pseudo-EOF value technique.</b> (Note, there are other 
+possible solutions to this problem, but our specification is to use the 
+PSEUDO_EOF value.) 
+
+<P dir="ltr">
+
+When you read the compressed file your code
+stops when the encoding for the pseudo-EOF value is read.
+The pseudo code below shows how to read a compressed file using the pseudo-EOF
+technique. (Your actual code may vary depending on how you break up the 
+problem.)<p><code>&nbsp;&nbsp;&nbsp; // read 1 bit at a time and walk tree<br>
+&nbsp;&nbsp;&nbsp; private int decode() throws IOException <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; get ready to walk tree, start at root<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; boolean done = false;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; while(!done) <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; int bit = 
+    bitsIn.readBits(1);<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if(bit == -1)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+    throw new IOException(&quot;Error reading compressed file. \n&quot; +<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+    &quot;unexpected end of input. No PSEUDO_EOF value.&quot;);<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; else <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+    move left or right in tree based on value of bit<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+    (move left if bit is 0, move right if bit is 1)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+    if(reached a leaf node) {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+    if(val is the pseudo end of file value)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+    done = true;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+    else <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+    write out value in leaf to output<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+    get back to root of tree</code></p>
+
+<P>
+
+When you're writing  the compressed file be sure
+that the last bits written are the Huffman-coding
+bits that correspond to the pseudo-EOF char. You will have to write
+these bits explicitly. These bits will be recognized 
+and
+used in the decompression process. This means that
+your decompression program will never actually run out of bits if it's
+processing a properly compressed file (you may need to think about this
+to really believe it).  In other words, when decompressing you will read
+bits, traverse a tree, and eventually find a leaf-node representing some
+value. When the pseudo-EOF leaf is found, the program can terminate
+because all decompression is done.  If reading a bit fails because there
+are no more bits (the bit-reading method returns -1) the compressed
+file is not well formed. <b>Your program shall cope with
+files that are not well-formed, be sure to test for this</b>, i.e., test
+unhuff with plain (uncompressed) files.
+<P>
+My program generates this error when such a file is found.
+<P>
+<img border="0" src="images/no_pseudo_eof.jpg" width="647" height="405">
+
+<P>
+In Huffman trees/tables you use in your programs, the pseudo-EOF value/chunk always has a count of one --- this should be done
+explicitly in the code that determines frequency counts. In other words,
+a pseudo-char EOF with number of occurrences (count) of 1 must be
+explicitly created.
+
+<P>In the file
+<code><a href="doc/IHuffConstants.html">IHuffConstants</a></code>
+
+the
+number of values counted is specified by <code>ALPH_SIZE
+</code>which has value 256. Although only 256 values can be represented by
+8 bits, these values are between 0 and 255, inclusive.  One value is
+used as the pseudo-EOF value -- it must be a value that cannot be 
+represented
+with 8-bits, the smallest such value is 256 which requires 9 bits to
+represent.  However, ideally your program should be able to work with
+n-bit chunks, not just 8-bit chunks. (In other words, use the constants in <code>
+IHuffConstants</code> instead of hard coding numbers. The numbers 8, 9, 32, 255, 
+and 256 shouldn't appear anywhere in the code you write.)<h3><a name="tpq"></a>Priority Queues</H3>
+
+<P>
+You're given a <code><a href="doc/TreeNode.html">TreeNode</a></code>
+that implements <code>Comparable</code>. You can use this class in
+storing weighted value/chunk objects in a priority queue to make a
+Huffman tree. You must write your own priority queue class because the Java 
+priority queue breaks ties in an arbitrary manner. (Of course you may use 
+pre-existing Java classes such as lists to help you.)<P>
+
+<H3>
+<A NAME="tree2table"></A>Creating a Map/Table from a Huffman-tree</H3>
+
+<P>
+To create a table or map of coded bit values for each 8-bit chunk you'll
+need to traverse the Huffman tree (e.g., inorder, preorder, etc.) making
+an entry in the map each time you reach a leaf. For example, if you
+reach a leaf that stores the 8-bit chunk 'C', following a path
+left-left-right-right-left, then an entry in the 'C'-th location of the
+map should be set to 00110.  You'll need to make a decision about how
+to store the bit patterns in the map. One option is to use a string whose only characters are '0' and '1', the string
+      represents the path from the root of the Huffman tree to a leaf --
+      and the value in the leaf has a Huffman coding represented by the
+      root-to-leaf path.
+<P>
+This means you'll need to follow every root-to-leaf path in the Huffman
+tree, building the root-to-leaf path during the traversal. When you
+reach a leaf, the path is that leaf value's encoding. One way to do this
+is with a method that takes a <code>TreeNode</code> parameter and a
+<code>String</code> that represents the path to the node. Initially the
+string is empty <code>""</code> and the node is the global root. When your code
+traverses left, a <code>"0"</code> is added to the path, and similarly a
+
+<code>"1"</code> is added when going right.
+<P>
+<code>&nbsp;&nbsp;&nbsp; ... <br>
+&nbsp;&nbsp;&nbsp; ... <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; recurse(n.getLeft(), path + &quot;0&quot;); <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; recurse(n.getRight(), path + &quot;1&quot;); <br>
+<br>
+</code>This would be a method in the HuffmanCodeTree class and it could build a table / 
+map that the tree either stores or returns.<h3><a name="writebits"></a>Writing Bits in the Compressed File</h3>
+
+    A .hf file is a file compressed using your Huffman coding program. A .hf 
+    file has five parts. These are shown on separate lines for clarity, but in 
+    the actual file no newline characters are written. Recall the goal is to use 
+    as little space as possible.<p>Parts of a .hf file you must write out:</p>
+    <ol>
+      <li>MAGIC_NUMBER constant from <code>IHuffConstants</code></li>
+      <li>STORE_COUNTS or STORE_TREE constant from <code>IHuffConstants</code> 
+      indicating if the data to rebuild the tree / codes is in <i>Standard Count 
+      Format (SCF) </i>or<i> Standard Tree Format (STF)</i>.</li>
+      <li>The header data to rebuild tree / codes for chunks in either 
+      Standard Count Format or Standard Tree Format</li>
+      <li>The actual compressed data. (paths through the HuffCode tree 
+      / codes for chunks from the original file)</li>
+      <li>The code for the PSEUDO_EOF constant from <code>IHuffConstants</code></li>
+    </ol>
+    <p>There are 5 steps in writing a compressed file from the
+information your code determined and stored: the counts and
+encodings. All this code is called from the
+<code>IHuffProcessor.compress</code> method which is called from the GUI when 
+    the compress option from the GUI is selected. Selecting compress results in 
+    a call to the
+<code>IHuffProcessor.preprocessCompress </code>method, followed by a call to the
+<code>IHuffProcessor.compress </code>method which does the actual write to a 
+    file.</p>
+    <ol>
+      <li><b>Write a <em>magic number</em> at the beginning of the compressed 
+      file.</b> You can access the <code>IHuffConstants.MAGIC_NUMBER</code>
+value either without the <code>IHuffConstants</code> modifier in your
+<code>IHuffProcessor</code> implementation (because the latter
+interface extends the former) or using the complete
+<code>IHuffConstants.MAGIC_NUMBER</code> identifier. When you
+uncompress you'll read this number to ensure you're reading a file
+your program compressed. Implement a program that can compress and uncompress <i>
+      Standard Count Format </i>first. Your program must be able to
+uncompress files it creates. Your program<b> must </b>have 
+      the ability to process both kinds of standard headers, specified by magic
+numbers <code>STORE_COUNTS</code> and <code>STORE_TREE</code> in the
+
+<code>IHuffConstants</code> interface. (Start with the simple Standard Count 
+      Format and get that working.) There's also a value for 
+      custom headers, but that is not used in testing or grading. (And don't use 
+      it in your compression.). You write out the magic number as a BITS_PER_INT 
+      int.<br>
+      <br>
+      For example, in one version of my program,
+I have the following code:<br>
+      <br>
+      <code>&nbsp;// write out the magic number <br>
+      out.writeBits(BITS_PER_INT, MAGIC_NUMBER); </code><br>
+      <br>
+then in another part of the class (in another method)<br>
+      <br>
+      <code>int magic = in.readBits(BITS_PER_INT); <br>
+      if (magic != MAGIC_NUMBER) {<br>
+&nbsp;&nbsp;&nbsp; viewer.showError(&quot;Error reading compressed file. \n&quot; +<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &quot;File did not 
+      start with the huff magic number.&quot;);<br>
+&nbsp;&nbsp;&nbsp; return -1;<br>
+      }<br>
+      <br>
+      </code>In general, a file with the wrong magic number should not generate an
+error that halts the program, but should notify the user. For example, in my program the
+exception above ultimately causes the user to see what's shown
+below. This is because the exception is caught and the viewer's
+<code>showError</code> method called appropriately. Your code should
+at least print a message to the GUI, and ideally generate an error dialog as
+shown.<br>
+      <br>
+      <img border="0" src="images/no_magic_number.jpg" width="646" height="399"> <br>
+&nbsp;</li>
+      <li><b>Write the STORE_COUNTS or STORE_TREE constant</b> from <code>
+      IHuffConstants</code> indicating if the data to rebuild the tree / codes 
+      is in <i>Standard Count Format (SCF) </i>or<i> Standard Tree Format (STF)</i>. 
+      These constants will be used by the decompressor to determine how the 
+      format of the following data that is used to rebuild the tree in order to 
+      decode the actual data. Recall, we are using specialized encodings that 
+      the receiving / decompressing computer does not know, so their must be a 
+      way to determine the specialize codes. You write out the header format 
+      constant as a BITS_PER_INT int.<br>
+&nbsp;</li>
+      <li><a name="header"></a><b>Write information after the store 
+      constant that allows the Huffman tree
+to be recreated.</b> The simplest thing to do here is write
+<code>ALPH_SIZE</code> counts as <code>int</code> values (Standard Count Format), but you can also write 
+      the tree (Standard Tree Format). Your basic compression and uncompression
+code shall process a header in <em>standard count
+	  format</em> or <em>SCF</em>. This is a header of 256 (ALPH_SIZE) counts,
+	one 32-bit (BITS_PER_INT) int value for each 8-bit chunk, in order from 0-255.
+You don't need a count for pseudo-EOF because it's always one. <br>
+      <br>
+In my by
+code using <em>Standard Count Format</em>, my header is written by  code similar 
+      to the following. Note that
+<code>BITS_PER_INT</code> is 32 in Java. <br>
+      <br>
+      <code>for(int k=0; k &lt; IHuffConstants.ALPH_SIZE; k++) { <br>
+&nbsp;&nbsp;&nbsp; out.writeBits(BITS_PER_INT, myCounts[k]); <br>
+      } </code><br>
+      <br>
+      Note, for small files using Standard Count Format usually results in the 
+      &quot;compressed&quot; file being larger than the original file. You need larger 
+      files to get actual compression with the Standard Count Format. We use 
+      Standard Count Format because it is relatively easy to implement. 
+      <p>This Standard Count Format header is  read from a compressed file as follows (minus some possible error checking code), this doesn't do much, but
+shows how reading/writing the header are related. <br>
+      <br>
+      <code>for(int k=0; k &lt; IHuffConstants.ALPH_SIZE; k++) { <br>
+&nbsp;&nbsp;&nbsp; int bits = in.readBits(BITS_PER_INT); <br>
+&nbsp;&nbsp;&nbsp; myCounts[k] = bits; <br>
+      }</code><br>
+      <br>
+      One alternative to the count format is to write the tree instead of the counts using <i>Standard Tree 
+      Format.</i> Standard Tree Format consists of one 32-bit (BITS_PER_INT) 
+      value, an int indicating how many bits 
+      are in the tree representation followed by the bits of the tree 
+      as described below.<br>
+      <br>
+      Standard Tree Format uses a 0 or 1 bit to differentiate between internal nodes and
+leaves.  The leaves must store  values from the original file (in the
+general case using (<code>IHuffConstants.BITS_PER_WORD</code> + 1) bits because of the pseudo-eof 
+      value). 
+      Standard Tree Format in the Huff program/suite uses a pre-order traversal, 
+      a single zero-bit for internal nodes, a single one-bit for a leaf, and 
+      nine bits for the value stored in a leaf.<br>
+      <br>
+For example, the sequence of 0's and 1's below represents the tree on
+the right (if you write the 0's and 1's the spaces wouldn't appear, the
+spaces are only to make the bits more readable to humans.)<br>
+&nbsp;</p>
+      <div align="center">
+        <center>
+<TABLE style="border-collapse: collapse" bordercolor="#111111" cellpadding="0" cellspacing="0">
+<TD>
+<PRE> <font size="4">  0 0 1 001100001 1 000100000 1 001110100</font>
+</PRE>
+<TD>
+<img border="0" src="images/SimpleTree.gif" width="237" height="187">
+</TABLE>
+        </center>
+      </div>
+<P>
+
+The first 0 indicates a non-leaf, the second 0 is the left child of
+the root, a non-leaf. The next 1 is a leaf, it is followed by 9 bits
+that represent 97 (001100001 is 97 in binary), the Unicode/ASCII code
+for 'a'. Then there's a 1 for the right child of the left child of the
+root, it stores 32 (000100000 is 32 in binary), the ASCII value of a
+space.  The next 1 indicates the right child of the root is a leaf, it
+stores the Unicode/ASCII value for a 't' which is 116 (001110100 is
+116 in binary).<br>
+<br>
+So for the example above the actual Standard Tree Format header for the tree shown above would be as 
+follows: (Spaces included for clarity. When written and read from a file no 
+spaces are present.)<br>
+<br>
+<code>00000000000000000000000000100000 0 0 1 001100001 1 00010000 1 001110100</code><br>
+<br>
+The first value is the 32 bits for the size of the tree. The size of the tree in 
+bits is 32.
+Write these bits using a standard pre-order
+traversal. You can then read them by reading a bit, then recursively
+reading left/right subtrees if the bit is a zero. <br>
+<br>
+In my code to read/write the header as a tree, the resulting header is much 
+smaller than the standard count header.<P>
+
+There are other ways of getting the data the decompressor needs to rebuild the 
+tree, but for the assignment implement the count format and tree format as 
+described.<br>
+&nbsp;</li>
+      <li>
+<P dir="ltr">
+
+<b>The actual compressed data. </b>Write the bits needed to encode each value of the input
+file. For example, if the coding for <tt>'a' (or 0100 0001)</tt> is "01011" then your
+code will have to write 5 bits, in the order 0, 1, 0, 1, 1 every time
+the program is compressing/encoding the chunk 'a' / <code>0100 001</code> You'll re-read the
+file being compressed, look up each chunk/value's encoding and
+write a 0 or 1 bit for each '0' or '1' character in the encoding. <br>
+&nbsp;</li>
+      <li>
+<P dir="ltr">
+
+<b>Write the code you generated for <code>PSEUDO_EOF</code> constant from <code>IHuffConstants</code>. 
+(Do not write the PSEUDO_EOF constant itself. Write out its code you generated 
+along with the other new codes.)</b></li>
+    </ol>
+<P>
+
+
+<H3><A NAME="develop"></A>Implementing and Debugging</H3>
+
+    It's a good idea to create more than one class to help manage the complexity 
+    in these programs and to add methods/code incrementally after
+each has been tested. Because the same data structures need to be used to
+ensure that a file compressed using your huff algorithm can be
+decompressed, you should be able to share several parts of the
+implementation. Use classes to exploit this similarity.  
+
+
+<P>
+
+<h2>Testing your Program</h2>
+
+    <p>Write your own tests and see what happens with small files.
+    </p>
+    <p>The&nbsp; expected frequency and codes for the 
+    <a href="smallTextFreqsAndCodes.txt">small text file (Eerie 
+    eyes seen near lake.)</a> and the <a href="ciaFactbook2008FreqsAndCodes.txt">2008 CIA Factbook</a> 
+    are useful in checking your work. <b>The codes for the small text file are 
+    different than the example from the class slides due to the period value 
+    being inserted out of order in the slides and the presence of the PSEUDO EOF 
+    value.</b></p>
+    <p>You can also use the provided Diff.java class to compare two files. (it 
+    is in the HuffmanStarter.jar file) Your compressed files for the small text 
+    file and the CIA Factbook must match the provided samples created using the 
+    standard count format.. (smallText.txt.hf and ciaFactbook2008.txt.hf)</p>
+
+<h2>Debugging Code</h2>
+
+<P>Designing debugging functions as part of the original program will
+make the program development go more quickly since you will be able to
+verify that pieces of the program, or certain classes, work
+properly. Building in the debugging scaffolding from the start will make
+it much easier to test and develop your program. When testing, use small
+examples of test files maybe even as simple as "Eerie eyes seen near lake." that help
+you verify that your program and classes are functioning as intended. Use the
+<code>update</code>, <code>showMessage</code>, and <code>showError</code> 
+messages from the HuffViewer class to see what is going on.<P>You might want to write encoding bits out first as strings or
+printable int values rather than as raw bits of zeros and ones which
+won't be readable except to other computer programs. A <em>Compress</em>
+class, for example, could support <em>printAscii</em> functions and
+<em>printBits</em> to print in human readable or machine readable
+formats.
+
+<P>I cannot stress enough how important it is to develop your program
+a few steps at a time. At each step, you should have a functioning program,
+although it may not do everything the first time it's run. By developing
+in stages, you may find it easier to isolate bugs and you will be more
+likely to get a program working faster.<b> In other words, <em>do not write 
+hundreds of lines of code before testing</em>. Testing rocks. Debugging stinks.</b><P>
+
+<H2><A NAME="bitops"></A>Using <em>BitInputStream</em></H2>
+
+In order to read and write in a bit-at-a-time manner, two classes are
+provided <a href="doc/BitInputStream.html"><code>BitInputStream</code></code></a> and
+    <code><a href="doc/BitOutputStream.html">BitOutputStream</code></a></code>.
+<P>
+
+<h3> Bit read/write subprograms</H3>
+
+    <p dir="ltr">To see how the <em>readBits</em> routine works, consider the 
+    following code segment. It reads <TT>BITS_PER_WORD</TT> bits at a time (which is
+8 bits as defined in <a href="doc/IHuffConstants.html"><code>IHuffConstants</code></a>) and echoes what is
+read.</p>
+
+    <p dir="ltr"><code>BitInputStream bits = new BitInputStream(new 
+    FileInputStream(&quot;data/poe.txt&quot;)); <br>
+    while ((inbits = bits.readBits(IHuffConstants.BITS_PER_WORD)) != -1) { <br>
+&nbsp;&nbsp;&nbsp; System.out.println(inbits); <br>
+    } </code> </p>
+
+    <p dir="ltr">Note that executing the Java statement <TT>System.out.print('7')</TT> results in
+16 
+bits being written because a Java char 
+uses 16 bits (the 16 bits
+correspond to the character '7'). Executing <code>
+
+System.out.println(7)</code>. results in 32 bits being written because a 
+Java int uses 32
+bits. Executing <code>obs.writeBits(3,7)</code> results in 3 bits being
+written (to the BitOutputStream <em>obs</em>) --- all the bits are 1
+because the number 7 is represented in base two by 0000 0000 0000 0000 0000 0000 0000 0111. 
+    (only the 3 rightmost bits are written.) When writing out constants and 
+    counts to the compressed file use <code>IHuffConstants.BITS_PER_INT</code> 
+    which is 32. When writing out the '1's and '0's from the new code for chunks 
+    you will be writing single bits. When writing to the uncompressed file you 
+    will be writing out <code>IHuffConstants.BITS_PER_WORD</code>. </p>
+
+<P>When using <code>writeBits</code> to write a specified number of
+bits, some bits may not be written immediately because of
+buffering. To ensure that all bits are written, the
+last bits must be explicitly flushed. The function <code>flush</code>
+<b>must</b> be called either explicitly or by calling
+<code>close</code>.
+
+
+
+<P>
+Although <em>readBits</em> can be called to read a single bit at a time (by 
+setting the parameter to 1), the return value from the method is an int.
+
+    <h3><a name="bitinput"></a>InputStream objects</h3>
+
+In Java, it's simple to construct one input stream from another. The
+Viewer/GUI code that drives the model will send an
+<code>InputStream</code> object to the model for readable-files, it will
+also send an <code>OutputStream</code> for writeable-files.  The
+client/model code you write will need to wrap this stream
+in an appropriate <code>BitInputStream</code> or 
+<code>BitOutputStream</code> object.
+
+    <p><code>&nbsp;&nbsp;&nbsp; public int uncompress(InputStream in, 
+    OutputStream out) <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ... <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; BitInputStream bis = new 
+    BitInputStream(in); <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ... </code></p>
+<P>
+Of course exceptions may need to be caught or rethrown. For input,
+you'll need to always create a <code>BitInputStream</code> object to
+read chunks or bits from. For the output stream, you may need to create
+a <code>BitOutputStream</code> to write individual bits, so you should
+create such a stream -- for uncompressing it's possible to just write
+without creating a <code>BitOutputStream</code> using the
+<code>OutputStream.write</code> method, but you'll find it simpler to use
+
+<code>BitOutputStream.writeBits</code> method.
+<p>
+    <h3><a name="force"></a>Forcing Compression</h3>
+
+If compressing a file results in a file larger than the file being
+compressed then no compressed file should be
+created and a message should be shown indicating that this is the
+case. Here's a screen shot from what happens in my program.
+<P>
+<img border="0" src="images/forceCompression.jpg" width="646" height="398">
+<P>
+You can choose a <em>force compression</em> option from the GUI/Options
+menu. If this is chosen/checked, the value of the third parameter to
+
+<code>IHuffProcessor.compress</code> is true, and your code should
+"compress" a file even though the resulting file will be
+bigger. Otherwise (force is false), if the compressed file is bigger,
+your program should <b>not compress</b> and should generate an error
+such as the one shown above.
+<P>
+<font size="5"><b><a name="exceptions"></a>Exceptions</b></font><P dir="ltr">
+The <code>readBits(int howMany)</code> method from the <code>BitInputStream</code> 
+class and the <code>writeBits(int howManyBits, int value)</code> method from the
+<code>BitOutputStream</code> class both have the potential to throw <code>
+IOExceptions</code>.
+<a href="http://download.oracle.com/javase/6/docs/api/java/io/IOException.html">
+<code>IOExceptions</code></a> are a standard Java exception. An <code>
+IOException</code> indicates something &quot;bad&quot; or &quot;unexpected&quot; has happened while 
+trying to do input or output. There are two ways to deal with these exceptions 
+in your program.
+    <ol>
+      <li dir="ltr">
+<P dir="ltr">
+Pass the buck and when reading bits, check every read to see if the value 
+returned is -1. The <code>readBits</code> method returns -1 if there were fewer 
+bits than requested in the stream (file) the reader was connected to. If this 
+occurs you code needs to stop what it is doing, show an error message via the 
+viewer and return. This can lead to pretty gacky code such as this (taking from 
+by decoder / uncompress / unhuff class):<br>
+<br>
+<code>&nbsp;// read 1 bit at a time and walk tree<br>
+private int decode() throws IOException {<br>
+&nbsp;&nbsp;&nbsp; // get ready to walk tree<br>
+&nbsp;&nbsp;&nbsp; boolean done = false;<br>
+&nbsp;&nbsp;&nbsp; while(!done) {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; int bit = bitsIn.readBits(1);<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if(bit == -1)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; throw new 
+IOException(&quot;Error reading compressed file. \n&quot; +<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+&quot;unexpected end of input. No PSEUDO_EOF value.&quot;);<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; // let 
+someone else who knows more about the problem deal with it.<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; else <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ...</code><br>
+<br>
+The code tries to read a bit and if it can't then it shows an error and stops 
+what it is doing. Note the method has the clause <code>throws IOException</code>.&nbsp; 
+This is necessary because the call the <code>readBits</code> method has the same 
+clause. IOException is a type of exception referred to as a checked exception. 
+This means the compiler checks to see that you are doing something about the 
+exception if it occurs. Checked exceptions indicate something bad has happened 
+that is beyond the programmers control. For example a file being removed before 
+we are done reading from it. The other kind of exception that you are more 
+familiar with are referred to as unchecked or runtime exceptions. These are 
+things like <code>NullPointerException</code>, <code>
+ArrayIndexOutOfBoundsException</code>, and <code>IllegalArgumentException</code>. 
+These indicate a logic error on the programmers part that is <b><i>entirely 
+preventable.</i></b> The compiler does not check to see if you handle or deal 
+with unchecked exceptions because they are never suppose to occur. <br>
+<br>
+Checked exceptions are different. The compiler wants to see you have at least 
+thought about the problem. In the fist case we have thought about it and decided 
+it is someone else's problem. In this case whoever called our method. If you 
+trace back to the <code>HuffView</code> class you will find the code that calls 
+the <code>preprocessCompress</code>, <code>compress</code>, and <code>uncompress</code> 
+methods has code to deal with any <code>IOExceptions</code> those methods throw.
+<br>
+<br>
+When an exception is <i>thrown </i>the regular program logic stops and the 
+exception handling mechanism takes over. This is part of the runtime system. The 
+exception handling mechanism will back out of methods on the program stack until 
+it finds error handling code (a catch block) which is executed. The code does 
+not jump back to where the exception occurred. <br>
+&nbsp;</li>
+      <li dir="ltr">
+<P dir="ltr">
+The alternative to passing the buck is dealing with the exception locally via a
+<i>try - catch </i>block. This is Java syntax that tries to execute code that 
+could generate a checked exception (the try block) and then has code to deal 
+with the exception if it occurs (the catch block). <br>
+<br>
+<code>&nbsp;// read 1 bit at a time and walk tree<br>
+private int decode() {<br>
+&nbsp;&nbsp;&nbsp; // get ready to walk tree<br>
+&nbsp;&nbsp;&nbsp; boolean done = false;<br>
+&nbsp;&nbsp;&nbsp; try {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; while(!done) {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; int bit = 
+bitsIn.readBits(1);<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if(bit == -1) 
+{<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+viewer.showError(&quot;Error reading compressed file. \n&quot; +<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+&quot;unexpected end of input. No PSEUDO_EOF value.&quot;);<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+done = true;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+result = -1;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; }<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ...<br>
+&nbsp;&nbsp;&nbsp; }<br>
+&nbsp;&nbsp;&nbsp; catch(IOException e) {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; // code to deal with exception<br>
+&nbsp;&nbsp;&nbsp; }<br>
+</code><br>
+The downside of this approach on this assignment is the exception should be 
+dealt with by the <code>HuffViewer</code>, so it is appropriate to pass the buck 
+in this case. I recommend taking the first approach om the assignment.</li>
+    </ol>
+<P dir="ltr">
+<font size="5"><b><a name="integer"></a>The Integer class</b></font><P dir="ltr">
+The Integer class has a couple of static methods you may find useful. There are 
+methods to convert an to a binary string and vice versa. See
+<a href="http://download.oracle.com/javase/6/docs/api/java/lang/Integer.html#toBinaryString%28int%29">
+<code>Integer.toBinaryString(int val)</code></a> and <code>
+<a href="http://download.oracle.com/javase/6/docs/api/java/lang/Integer.html#valueOf%28java.lang.String,%20int%29">
+Integer.valueOf(String st, int radix)</a></code> Radix is another term for base, 
+as in base 2.</body></html>
