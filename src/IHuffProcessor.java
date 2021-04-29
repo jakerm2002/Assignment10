@@ -45,7 +45,7 @@ public interface IHuffProcessor extends IHuffConstants {
      * previously been pre-processed via <code>preprocessCompress</code>
      * storing state used by this call.
      * <br> pre: <code>preprocessCompress</code> must be called before this method
-     * @param in is the stream being compressed (NOT a BitInputStream)
+     * @param in is the stream being compressed
      * @param out is bound to a file/stream to which bits are written
      * for the compressed file (not a BitOutputStream)
      * @param force if this is true create the output file even if it is larger than the input file.
